@@ -37,8 +37,6 @@ void loop() {
     delay(2000);
 }
 
-//hei
-
 void drive(int speed, Direction direction) {
     speed = constrain(speed, -400, 400);
     switch (direction) {
