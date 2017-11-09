@@ -18,7 +18,8 @@
 const int PIN_LED = 13;
 
 
-enum Direction {Forward, Backward, Left, Right, SwivelLeft, SwivelRight};
+enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
+
 
 
 ZumoMotors motor;
@@ -30,47 +31,54 @@ void setup() {
 
 
 void loop() {
+    testDrive();
+}
+
+
+
+/*
+ * The drive function makes roger move in any direction
+ *
+ * @param speed is the speed of the motors
+ *
+ * @param direction the direction to drive
+ *
+ * @param turnSpeedOffset for one of the motors when turning. Lower number means a sharper turn.
+ */
+void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
+    speed = constrain(speed, -400, 400);
+    switch (direction) {
+        case Straight:
+            motor.setSpeeds(speed, speed);
+            break;
+        case Left:
+            motor.setSpeeds(speed * turnSpeedOffset, speed);
+            break;
+        case Right:
+            motor.setSpeeds(speed, speed * turnSpeedOffset);
+            break;
+        case SwivelLeft:
+            motor.setSpeeds(-speed, speed);
+            break;
+        case SwivelRight:
+            motor.setSpeeds(speed, -speed);
+            break;
+    }
+}
+
+
+void testDrive() {
     delay(2000);
-    drive(200, Forward);
+    drive(200, Straight);
     delay(2000);
-    drive(200, Backward);
+    drive(200, Left, 0.5);
     delay(2000);
-    drive(200, Left);
-    delay(2000);
-    drive(400, Right);
+    drive(400, Right, 0.8);
     delay(2000);
     drive(200, SwivelLeft);
     delay(2000);
-    drive(400, SwivelRight),
+    drive(400, SwivelRight);
     delay(2000);
-}
-
-void drive(int speed, Direction direction) {
-    speed = constrain(speed, -400, 400);
-    switch (direction) {
-        case Forward:
-            motor.setLeftSpeed(speed);
-            motor.setRightSpeed(speed);
-            break;
-        case Backward:
-            motor.setLeftSpeed(-speed);
-            motor.setRightSpeed(-speed);
-            break;
-        case Left:
-            motor.setLeftSpeed(speed * 0.4);
-            motor.setRightSpeed(speed);
-            break;
-        case Right:
-            motor.setLeftSpeed(speed);
-            motor.setRightSpeed(speed * 0.4);
-            break;
-        case SwivelLeft:
-            motor.setLeftSpeed(-speed);
-            motor.setRightSpeed(speed);
-            break;
-        case SwivelRight:
-            motor.setLeftSpeed(speed);
-            motor.setRightSpeed(-speed);
-            break;
-    }
+    drive(-200, Right, 0.3);
+    delay(2000);
 }
