@@ -9,6 +9,7 @@
  *      State machine
  *      Vite når roboten er på kanten av arena
  *      Skrive ut feste til sensor
+ *      Bruk accelerometer til å vite om vi har blitt eid av motstanderen
  *
 */
 
@@ -18,7 +19,9 @@
 
 const int PIN_LED = 13;
 
-const int NUM_SEONSORS = 6;
+const int NUM_SENSORS = 6;
+const int WHITE_THRESHOLD = 1920;
+const int NO_SENSOR = -1;  // The value where no sensor is returned
 
 bool logging = true;
 
@@ -26,8 +29,6 @@ enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
 
 
 ZumoMotors motor;
-
-unsigned int sensorValues[NUM_SEONSORS];
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
 
 
@@ -38,25 +39,50 @@ void setup() {
 }
 
 
-void printSensorValues() {
+/*
+ * Print read sensor values as:
+ * Sensors: {#0, #1, #2, #3, #4, #5}
+ *
+ * @param values Array of values to print
+ */
+void printSensorValues(unsigned int values[NUM_SENSORS]) {
     Serial.print("Sensors: {");
-    for (int i = 0; i < NUM_SEONSORS; i++) {
-        Serial.print(sensorValues[i]);
+    for (unsigned int i = 0; i < NUM_SENSORS; i++) {
+        Serial.print(values[i]);
         Serial.print(", ");
     }
     Serial.println("}");
 }
 
 
+/*
+ * If any of the sensors are above the arena border, return the sensor ID.
+ * When all of the sensors are within the border, return NO_SENSOR (-1)
+ *
+ * @param values Array of the values to check
+ */
+int getSensorAboveBorder(unsigned int values[NUM_SENSORS]) {
+    for (unsigned int i = 0; i < NUM_SENSORS; i++) {
+        if (values[i] < WHITE_THRESHOLD) {
+            return i;
+        }
+    }
+
+    return NO_SENSOR;
+}
+
+
 void loop() {
+    unsigned int sensorValues[NUM_SENSORS];
+
     // Store sensor readings in sensorValues
     sensors.read(sensorValues);
 
     if (logging) {
-        printSensorValues();
+        printSensorValues(sensorValues);
     }
 
-    testDrive();
+    // testDrive();
 }
 
 
