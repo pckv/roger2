@@ -13,27 +13,51 @@
 */
 
 #include <ZumoMotors.h>
-
+#include <QTRSensors.h>
+#include <ZumoReflectanceSensorArray.h>
 
 const int PIN_LED = 13;
 
+const int NUM_SEONSORS = 6;
+
+bool logging = true;
 
 enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
 
 
-
 ZumoMotors motor;
+
+unsigned int sensorValues[NUM_SEONSORS];
+ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
 
 
 void setup() {
+    Serial.begin(9600);
+
     pinMode(PIN_LED, OUTPUT);
 }
 
 
-void loop() {
-    testDrive();
+void printSensorValues() {
+    Serial.print("Sensors: {");
+    for (int i = 0; i < NUM_SEONSORS; i++) {
+        Serial.print(sensorValues[i]);
+        Serial.print(", ");
+    }
+    Serial.println("}");
 }
 
+
+void loop() {
+    // Store sensor readings in sensorValues
+    sensors.read(sensorValues);
+
+    if (logging) {
+        printSensorValues();
+    }
+
+    testDrive();
+}
 
 
 /*
