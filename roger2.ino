@@ -23,10 +23,9 @@ const int NUM_SENSORS = 6;
 const int WHITE_THRESHOLD = 1920;
 const int NO_SENSOR = -1;  // The value where no sensor is returned
 
-bool logging = true;
+bool logging = true;  // Debug logs on Serial port 9600
 
 enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
-
 
 ZumoMotors motor;
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
@@ -87,16 +86,15 @@ void loop() {
 
 
 /*
- * The drive function makes roger move in any direction
+ * The drive function makes roger move in any direction.
  *
  * @param speed is the speed of the motors
- *
  * @param direction the direction to drive
- *
  * @param turnSpeedOffset for one of the motors when turning. Lower number means a sharper turn.
  */
 void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
     speed = constrain(speed, -400, 400);
+
     switch (direction) {
         case Straight:
             motor.setSpeeds(speed, speed);
@@ -117,6 +115,9 @@ void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
 }
 
 
+/*
+ * Prøvekjøring
+ */
 void testDrive() {
     delay(2000);
     drive(200, Straight);
