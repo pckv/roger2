@@ -1,7 +1,15 @@
 /*
-
-roger2
-
+ * Roger 2
+ *
+ * Ledige pins: 4, 5, (6,) 11, 12, A0, A2, A3
+ *
+ *
+ * TODO: alle punkter under
+ *      Finpuss drive funksjon
+ *      State machine
+ *      Vite når roboten er på kanten av arena
+ *      Skrive ut feste til sensor
+ *
 */
 
 #include <ZumoMotors.h>
@@ -63,6 +71,6 @@ void drive(int speed, Direction direction) {
         case SwivelRight:
             motor.setLeftSpeed(speed);
             motor.setRightSpeed(-speed);
-        break;
+            break;
     }
 }
