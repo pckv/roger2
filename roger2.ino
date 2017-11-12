@@ -3,7 +3,7 @@
 roger2
 
 */
-
+#include <SharpDistSensor.h>
 #include <ZumoMotors.h>
 
 
