@@ -68,6 +68,9 @@ void setup() {
     sensorA.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
 
     Serial.begin(9600);
+
+    // Start a 5 second timer before changing to a bigboi state
+    startTimer(StartupTimer, STARTUP_SLEEP_TIME);
 }
 
 
@@ -184,10 +187,31 @@ void loop() {
     if (logging) {
         printSensorValues(sensorValues);
     }
+
     unsigned int distance = getSensorDistance(sensorA);
     Serial.println(distance);
     delay(50);
-    // testDrive();
+
+    switch (actionState) {
+        case Startup:
+            if (hasTimerExpired(StartupTimer)) {
+                changeState(Search);
+            }
+            break;
+
+        case Search:
+            break;
+
+        case Destroy:
+            break;
+
+        case Retreat:
+            break;
+
+        case Victory:
+            break;
+
+    }
 }
 
 
@@ -218,26 +242,6 @@ void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
             motor.setSpeeds(speed, -speed);
             break;
     }
-}
-
-
-/*
- * Prøvekjøring
- */
-void testDrive() {
-    delay(2000);
-    drive(200, Straight);
-    delay(2000);
-    drive(200, Left, 0.5);
-    delay(2000);
-    drive(400, Right, 0.8);
-    delay(2000);
-    drive(200, SwivelLeft);
-    delay(2000);
-    drive(400, SwivelRight);
-    delay(2000);
-    drive(-200, Right, 0.3);
-    delay(2000);
 }
 
 
