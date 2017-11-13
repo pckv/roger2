@@ -13,15 +13,19 @@
  *
 */
 
+// https://github.com/pololu/zumo-shield
 #include <ZumoMotors.h>
 #include <QTRSensors.h>
 #include <ZumoReflectanceSensorArray.h>
+
+// https://github.com/DrGFreeman/SharpDistSensor
+#include <SharpDistSensor.h>
+
 
 const int PIN_LED = 13;
 
 const int NUM_SENSORS = 6;
 const int WHITE_THRESHOLD = 1920;
-const int NO_SENSOR = -1;  // The value where no sensor is returned
 
 bool logging = true;  // Debug logs on Serial port 9600
 
@@ -55,19 +59,13 @@ void printSensorValues(unsigned int values[NUM_SENSORS]) {
 
 
 /*
- * If any of the sensors are above the arena border, return the sensor ID.
- * When all of the sensors are within the border, return NO_SENSOR (-1)
+ * Check if the given sensor ID is above the arena border.
  *
- * @param values Array of the values to check
+ * @param values Array of NUM_SENSORS values to check
+ * @param id The id of the sensor to check
  */
-int getSensorAboveBorder(unsigned int values[NUM_SENSORS]) {
-    for (unsigned int i = 0; i < NUM_SENSORS; i++) {
-        if (values[i] < WHITE_THRESHOLD) {
-            return i;
-        }
-    }
-
-    return NO_SENSOR;
+bool isSensorAboveBorder(unsigned int values[NUM_SENSORS], unsigned int id) {
+    return values[id] <= WHITE_THRESHOLD;
 }
 
 
