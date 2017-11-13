@@ -23,6 +23,10 @@
 
 
 const int PIN_LED = 13;
+const int PIN_SENSOR_IR_FRONT = A0;
+
+
+const int SENSOR_SAMPLE_SIZE = 5;
 
 const int NUM_SENSORS = 6;
 const int WHITE_THRESHOLD = 1920;
@@ -51,6 +55,8 @@ enum Timer {
 
 unsigned long startedTimers[1];  // TODO: Replace 1 with updated size of Timer
 
+
+SharpDistSensor sensorA(PIN_SENSOR_IR_FRONT, SENSOR_SAMPLE_SIZE);
 ZumoMotors motor;
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
 
@@ -59,6 +65,9 @@ void setup() {
     Serial.begin(9600);
 
     pinMode(PIN_LED, OUTPUT);
+    sensorA.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
+
+    Serial.begin(9600);
 }
 
 
@@ -175,8 +184,10 @@ void loop() {
     if (logging) {
         printSensorValues(sensorValues);
     }
-
-
+    unsigned int distance = getSensorDistance(sensorA);
+    Serial.println(distance);
+    delay(50);
+    // testDrive();
 }
 
 
@@ -228,3 +239,22 @@ void testDrive() {
     drive(-200, Right, 0.3);
     delay(2000);
 }
+
+
+/*
+ * Get distance from IR sensor in millimeters
+ *
+ * @params sensor is the sensor we want to use
+ * @return the distance in millimeters
+ */
+unsigned int getSensorDistance(SharpDistSensor &sensor) {
+    return sensor.getDist();
+}
+
+
+
+
+
+
+
+
