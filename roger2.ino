@@ -31,7 +31,7 @@ const int SENSOR_SAMPLE_SIZE = 5;
 const int NUM_SENSORS = 6;
 const int WHITE_THRESHOLD = 1920;
 
-const int STARTUP_SLEEP_TIME = 5000;  // As per the rules
+const unsigned long STARTUP_SLEEP_TIME = 1000;  // As per the rules TODO: change to 5000
 
 bool logging = true;  // Debug logs on Serial port 9600
 
@@ -51,9 +51,10 @@ ActionState actionState = Startup;
 
 enum Timer {
     StartupTimer,
+    RetreatTimer
 };
 
-unsigned long startedTimers[1];  // TODO: Replace 1 with updated size of Timer
+unsigned long startedTimers[8];  // TODO: set to correct size
 
 
 SharpDistSensor sensorA(PIN_SENSOR_IR_FRONT, SENSOR_SAMPLE_SIZE);
@@ -66,8 +67,6 @@ void setup() {
 
     pinMode(PIN_LED, OUTPUT);
     sensorA.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
-
-    Serial.begin(9600);
 
     // Start a 5 second timer before changing to a bigboi state
     startTimer(StartupTimer, STARTUP_SLEEP_TIME);
@@ -99,7 +98,7 @@ void startTimer(Timer timer, unsigned long duration) {
  * @param Timer Which Timer to check.
  */
 bool hasTimerExpired(Timer timer) {
-    return startedTimers[timer] >= millis();
+    return startedTimers[timer] < millis();
 }
 
 
@@ -166,56 +165,6 @@ void changeState(ActionState newState) {
 
 
 /*
- * Check if the given sensor ID is above the arena border.
- *
- * @param values Array of NUM_SENSORS values to check
- * @param id The id of the sensor to check
- */
-bool isSensorAboveBorder(unsigned int values[NUM_SENSORS], unsigned int id) {
-    return values[id] <= WHITE_THRESHOLD;
-}
-
-
-void loop() {
-    unsigned int sensorValues[NUM_SENSORS];
-
-    // Store sensor readings in sensorValues
-    sensors.read(sensorValues);
-
-    unsigned int sensorLeft, sensorRight = sensorValues[0], sensorValues[5];
-
-    if (logging) {
-        printSensorValues(sensorValues);
-    }
-
-    unsigned int distance = getSensorDistance(sensorA);
-    Serial.println(distance);
-    delay(50);
-
-    switch (actionState) {
-        case Startup:
-            if (hasTimerExpired(StartupTimer)) {
-                changeState(Search);
-            }
-            break;
-
-        case Search:
-            break;
-
-        case Destroy:
-            break;
-
-        case Retreat:
-            break;
-
-        case Victory:
-            break;
-
-    }
-}
-
-
-/*
  * The drive function makes roger in sonic speeds move in any direction.
  *
  * @param speed The speed of the motors
@@ -246,12 +195,78 @@ void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
 
 
 /*
+ * Check if the given sensor ID is above the arena border.
+ *
+ * @param values Array of NUM_SENSORS values to check
+ * @param id The id of the sensor to check
+ */
+bool isSensorAboveBorder(unsigned int values[NUM_SENSORS], unsigned int id) {
+    return values[id] <= WHITE_THRESHOLD;
+}
+
+
+void loop() {
+    unsigned int sensorValues[NUM_SENSORS];
+
+    // Store sensor readings in sensorValues
+    sensors.read(sensorValues);
+
+    // unsigned int sensorLeft, sensorRight = sensorValues[0], sensorValues[5];
+
+    if (logging) {
+        printSensorValues(sensorValues);
+    }
+
+    unsigned int distance = getSensorDistance(sensorA);
+    Serial.println(distance);
+    delay(50);
+
+    switch (actionState) {
+        case Startup:
+            if (hasTimerExpired(StartupTimer)) {
+                changeState(Search);
+                drive(400, Straight);
+            }
+            break;
+
+        case Search:
+            if (isSensorAboveBorder(sensorValues, 0)) {
+                drive(200, SwivelRight);
+                startTimer(RetreatTimer, 200);
+                changeState(Retreat);
+            }
+
+            if (isSensorAboveBorder(sensorValues, 5)) {
+                drive(200, SwivelLeft);
+                startTimer(RetreatTimer, 200);
+                changeState(Retreat);
+            }
+            break;
+
+        case Destroy:
+            break;
+
+        case Retreat:
+            if (hasTimerExpired(RetreatTimer)) {
+                drive(400, millis() % 2 == 0 ? Right : Left, random(0.5, 1));
+                changeState(Search);
+            }
+            break;
+
+        case Victory:
+            break;
+    }
+}
+
+
+/*
  * Get distance from IR sensor in millimeters
  *
  * @params sensor is the sensor we want to use
  * @return the distance in millimeters
  */
 unsigned int getSensorDistance(SharpDistSensor &sensor) {
+    drive(200, Left);
     return sensor.getDist();
 }
 
