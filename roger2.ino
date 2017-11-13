@@ -27,9 +27,29 @@ const int PIN_LED = 13;
 const int NUM_SENSORS = 6;
 const int WHITE_THRESHOLD = 1920;
 
+const int STARTUP_SLEEP_TIME = 5000;  // As per the rules
+
 bool logging = true;  // Debug logs on Serial port 9600
 
 enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
+
+enum ActionState {
+    Startup,    // Idle for five seconds before starting and entertain audience (zumo rules)
+    Search,     // Search for the opponent, usually the state active before targeting and attacking
+    Destroy,    // After targeting the opponent, this state is for charging and attacking
+    Retreat,    // The Retreat state is active when the robot has reached the edge of the arena
+    Victory     // Warp to dance floor
+};
+
+unsigned long actionStarted;  // Store the time action states changed.
+
+ActionState actionState = Startup;
+
+enum Timer {
+    StartupTimer,
+};
+
+unsigned long startedTimers[1];  // TODO: Replace 1 with updated size of Timer
 
 ZumoMotors motor;
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
@@ -39,6 +59,35 @@ void setup() {
     Serial.begin(9600);
 
     pinMode(PIN_LED, OUTPUT);
+}
+
+
+/*
+ * Return how long the current state has been active.
+ */
+unsigned long getActionDuration() {
+    return millis() - actionStarted;
+}
+
+
+/*
+ * Starts a timer with the given Timer id.
+ *
+ * @param Timer Which timer to start.
+ * @param duration When the timer should expire.
+ */
+void startTimer(Timer timer, unsigned long duration) {
+    startedTimers[timer] = millis() + duration;
+}
+
+
+/*
+ * Returns whether the given timer has expired.
+ *
+ * @param Timer Which Timer to check.
+ */
+bool hasTimerExpired(Timer timer) {
+    return startedTimers[timer] >= millis();
 }
 
 
@@ -59,6 +108,52 @@ void printSensorValues(unsigned int values[NUM_SENSORS]) {
 
 
 /*
+ * Prints the name of the given ActionState
+ *
+ * @param state ActionState to print.
+ */
+void printActionState(ActionState state) {
+    switch (state) {
+        case Startup:
+            Serial.print("Startup");
+            break;
+        case Search:
+            Serial.print("Search");
+            break;
+        case Destroy:
+            Serial.print("Destroy");
+            break;
+        case Retreat:
+            Serial.print("Retreat");
+            break;
+        case Victory:
+            Serial.print("Victory");
+            break;
+        default:
+            Serial.print("UNKNOWN");
+    }
+}
+
+
+/*
+ * Change the action state.
+ *
+ * @param newState The ActionState to change to.
+ */
+void changeState(ActionState newState) {
+    if (logging) {
+        Serial.print("Changing Action state from ");
+        printActionState(actionState);
+        Serial.print(" to ");
+        printActionState(newState);
+        Serial.println();
+    }
+
+    actionState = newState;
+}
+
+
+/*
  * Check if the given sensor ID is above the arena border.
  *
  * @param values Array of NUM_SENSORS values to check
@@ -75,20 +170,22 @@ void loop() {
     // Store sensor readings in sensorValues
     sensors.read(sensorValues);
 
+    unsigned int sensorLeft, sensorRight = sensorValues[0], sensorValues[5];
+
     if (logging) {
         printSensorValues(sensorValues);
     }
 
-    // testDrive();
+
 }
 
 
 /*
- * The drive function makes roger move in any direction.
+ * The drive function makes roger in sonic speeds move in any direction.
  *
- * @param speed is the speed of the motors
- * @param direction the direction to drive
- * @param turnSpeedOffset for one of the motors when turning. Lower number means a sharper turn.
+ * @param speed The speed of the motors
+ * @param direction The direction to drive
+ * @param turnSpeedOffset For one of the motors when turning. Lower number means a sharper turn.
  */
 void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
     speed = constrain(speed, -400, 400);
