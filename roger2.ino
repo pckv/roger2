@@ -35,10 +35,9 @@ const int WHITE_THRESHOLD = 1920;   // For the light sensors
 
 const unsigned long STARTUP_SLEEP_TIME = 3000;  // As per the rules TODO: change to 5000
 
-bool logging = false;  // Debug logs on Serial port 9600
 // Declare global variables
 unsigned long actionStarted;  // Store the time action states changed.
-unsigned long startedTimers[1];  // TODO: Replace 1 with updated size of Timer
+unsigned long startedTimers[8];  // TODO: set to correct size
 
 bool logging = true;  // Debug logs on Serial port 9600
 
@@ -67,12 +66,11 @@ enum Timer {
 // Make the sensor and motor objects
 SharpDistSensor sensorIrLeft(PIN_SENSOR_IR_LEFT, SENSOR_SAMPLE_SIZE);
 SharpDistSensor sensorIrRight(PIN_SENSOR_IR_RIGHT, SENSOR_SAMPLE_SIZE);
-unsigned long startedTimers[8];  // TODO: set to correct size
 
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
 ZumoMotors motor;
 
-// Make a state object and give it a default value
+// Set the default ActionState
 ActionState actionState = Startup;
 
 
