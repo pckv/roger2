@@ -17,6 +17,7 @@
 #include <ZumoMotors.h>
 #include <QTRSensors.h>
 #include <ZumoReflectanceSensorArray.h>
+
 // https://github.com/DrGFreeman/SharpDistSensor
 #include <SharpDistSensor.h>
 
@@ -28,22 +29,25 @@ const int PIN_SENSOR_IR_RIGHT = A4;
 
 
 // Declare global constants
-const int SENSOR_SAMPLE_SIZE = 5;   // The sensor returns the mean value of x amount of samples
+const int SENSOR_SAMPLE_SIZE = 5; // The sensor returns the mean value of x amount of samples
 
-const int NUM_SENSORS = 6;          // Number of sensors in the array
-const int WHITE_THRESHOLD = 1920;   // For the light sensors
+const int NUM_SENSORS = 6;  // Number of sensors in the array
+const int MAX_BORDER_SENSOR_RANGE = 2000;  // Highest value for border sensors
+const int WHITE_THRESHOLD = 1920;  // For the light sensors
+const int MAX_SPEED = 400;
+const int MIN_SPEED = -MAX_SPEED;
 
-const unsigned long STARTUP_SLEEP_TIME = 3000;  // As per the rules TODO: change to 5000
+const unsigned long STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 
 // Declare global variables
 unsigned long actionStarted;  // Store the time action states changed.
-unsigned long startedTimers[8];  // TODO: set to correct size
+unsigned long startedTimers[8];  // TODO: set to size of Timer enum
 
-bool logging = true;  // Debug logs on Serial port 9600
+bool logging = false;  // Debug logs on Serial port 9600
 
 // Make enums
 enum Direction {
-    Straight,
+    None,
     Left,
     Right,
     SwivelLeft,
@@ -58,14 +62,15 @@ enum ActionState {
     Victory     // Warp to dance floor
 };
 
+// Timer IDs for using multiple timers at once
 enum Timer {
     StartupTimer,
     RetreatTimer
 };
 
 // Make the sensor and motor objects
-SharpDistSensor sensorIrLeft(PIN_SENSOR_IR_LEFT, SENSOR_SAMPLE_SIZE);
-SharpDistSensor sensorIrRight(PIN_SENSOR_IR_RIGHT, SENSOR_SAMPLE_SIZE);
+SharpDistSensor sensorIRLeft(PIN_SENSOR_IR_LEFT, SENSOR_SAMPLE_SIZE);
+SharpDistSensor sensorIRRight(PIN_SENSOR_IR_RIGHT, SENSOR_SAMPLE_SIZE);
 
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
 ZumoMotors motor;
@@ -86,7 +91,9 @@ void setup() {
 
 
 /*
- * Return how long the current state has been active.
+ * Get the duration of the current ActionState.
+ *
+ * @return Time in ms since the ActionState switched.
  */
 unsigned long getActionDuration() {
     return millis() - actionStarted;
@@ -105,9 +112,10 @@ void startTimer(Timer timer, unsigned long duration) {
 
 
 /*
- * Returns whether the given timer has expired.
+ * Check if a timer has expired.
  *
- * @param Timer Which Timer to check.
+ * @param timer Which Timer ID to check.
+ * @return True if the timer has expired.
  */
 bool hasTimerExpired(Timer timer) {
     return startedTimers[timer] <= millis();
@@ -118,7 +126,7 @@ bool hasTimerExpired(Timer timer) {
  * Print read sensor values as:
  * Sensors: {#0, #1, #2, #3, #4, #5}
  *
- * @param values Array of values to print
+ * @param values Array of values to print.
  */
 void printSensorValues(unsigned int values[NUM_SENSORS]) {
     Serial.print("Sensors: {");
@@ -131,7 +139,7 @@ void printSensorValues(unsigned int values[NUM_SENSORS]) {
 
 
 /*
- * Prints the name of the given ActionState
+ * Prints the name of the given ActionState.
  *
  * @param state ActionState to print.
  */
@@ -178,17 +186,17 @@ void changeState(ActionState newState) {
 
 
 /*
- * The drive function makes roger in sonic speeds move in any direction.
+ * The drive function makes roger move in any direction.
  *
- * @param speed The speed of the motors
- * @param direction The direction to drive
+ * @param speed The speed of the motors.
+ * @param direction The direction to drive.
  * @param turnSpeedOffset For one of the motors when turning. Lower number means a sharper turn.
  */
-void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
-    speed = constrain(speed, -400, 400);
+void drive(int speed, Direction direction = None, float turnSpeedOffset = 1) {
+    speed = constrain(speed, MIN_SPEED, MAX_SPEED);
 
     switch (direction) {
-        case Straight:
+        case None:
             motor.setSpeeds(speed, speed);
             break;
         case Left:
@@ -203,18 +211,32 @@ void drive(int speed, Direction direction, float turnSpeedOffset = 1) {
         case SwivelRight:
             motor.setSpeeds(speed, -speed);
             break;
+        default:
+            motor.setSpeeds(0, 0);
     }
 }
 
 
 /*
- * Check if the given sensor ID is above the arena border.
+ * Get whichever sensor is above the border of the arena, if any.
  *
- * @param values Array of NUM_SENSORS values to check
- * @param id The id of the sensor to check
+ * @param sensorLeft Registered value of the leftmost sensor.
+ * @param sensorRight Registered value of the rightmost sensor.
+ * @return A Direction Left or Right denoting the left or right sensor, or a Direction None.
  */
-bool isSensorAboveBorder(unsigned int values[NUM_SENSORS], unsigned int id) {
-    return values[id] <= WHITE_THRESHOLD;
+Direction getSensorAboveBorder(unsigned int sensorLeft, unsigned int sensorRight) {
+    // Return the lowest value sensor
+    if (sensorRight < sensorLeft) {
+        return Right;
+    }
+    else if (sensorRight > sensorLeft) {
+        return Left;
+    }
+
+    // If the sensor values are equal, they are *highly* likely to both be 2000, so we can assume it's on the border
+    else {
+        return None;
+    }
 }
 
 
@@ -224,7 +246,8 @@ void loop() {
     // Store sensor readings in sensorValues
     sensors.read(sensorValues);
 
-    // unsigned int sensorLeft, sensorRight = sensorValues[0], sensorValues[5];
+    // Always find which sensor is above the border, if any
+    Direction borderSensor = getSensorAboveBorder(sensorValues[0], sensorValues[5]);
 
     if (logging) {
         printSensorValues(sensorValues);
@@ -238,13 +261,15 @@ void loop() {
             break;
 
         case Search:
-            if (isSensorAboveBorder(sensorValues, 0)) {
-                drive(200, SwivelRight);
-                changeState(Retreat);
-            }
+            // Change to Retreat when sensors are above the border
+            if (borderSensor != None) {
+                if (borderSensor == Left) {
+                    drive(200, SwivelLeft);
+                }
+                else if (borderSensor == Right) {
+                    drive(200, SwivelRight);
+                }
 
-            if (isSensorAboveBorder(sensorValues, 5)) {
-                drive(200, SwivelLeft);
                 changeState(Retreat);
             }
             break;
@@ -253,7 +278,8 @@ void loop() {
             break;
 
         case Retreat:
-            if (getActionDuration() >= 200) {
+            // After 200ms, and if the sensors are not above the border, go back to search mode
+            if ((getActionDuration() >= 200) && (borderSensor == None)) {
                 drive(200, millis() % 2 == 0 ? Right : Left, (float) (random(75, 100)) / 100);
                 changeState(Search);
             }
@@ -266,10 +292,10 @@ void loop() {
 
 
 /*
- * Get distance from IR sensor in millimeters
+ * Get distance from IR sensor in millimeters.
  *
- * @params sensor is the sensor we want to use
- * @return the distance in millimeters
+ * @params sensor is the sensor we want to use.
+ * @return the distance in millimeters.
  */
 unsigned int getSensorDistance(SharpDistSensor &sensor) {
     return sensor.getDist();
