@@ -17,25 +17,39 @@
 #include <ZumoMotors.h>
 #include <QTRSensors.h>
 #include <ZumoReflectanceSensorArray.h>
-
 // https://github.com/DrGFreeman/SharpDistSensor
 #include <SharpDistSensor.h>
 
 
+// Declare pins
 const int PIN_LED = 13;
-const int PIN_SENSOR_IR_FRONT = A0;
+const int PIN_SENSOR_IR_LEFT = A1;
+const int PIN_SENSOR_IR_RIGHT = A4;
 
 
-const int SENSOR_SAMPLE_SIZE = 5;
+// Declare global constants
+const int SENSOR_SAMPLE_SIZE = 5;   // The sensor returns the mean value of x amount of samples
 
-const int NUM_SENSORS = 6;
-const int WHITE_THRESHOLD = 1920;
+const int NUM_SENSORS = 6;          // Number of sensors in the array
+const int WHITE_THRESHOLD = 1920;   // For the light sensors
 
 const unsigned long STARTUP_SLEEP_TIME = 3000;  // As per the rules TODO: change to 5000
 
 bool logging = false;  // Debug logs on Serial port 9600
+// Declare global variables
+unsigned long actionStarted;  // Store the time action states changed.
+unsigned long startedTimers[1];  // TODO: Replace 1 with updated size of Timer
 
-enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
+bool logging = true;  // Debug logs on Serial port 9600
+
+// Make enums
+enum Direction {
+    Straight,
+    Left,
+    Right,
+    SwivelLeft,
+    SwivelRight
+};
 
 enum ActionState {
     Startup,    // Idle for five seconds before starting and entertain audience (zumo rules)
@@ -45,21 +59,21 @@ enum ActionState {
     Victory     // Warp to dance floor
 };
 
-unsigned long actionStarted;  // Store the time action states changed.
-
-ActionState actionState = Startup;
-
 enum Timer {
     StartupTimer,
     RetreatTimer
 };
 
+// Make the sensor and motor objects
+SharpDistSensor sensorIrLeft(PIN_SENSOR_IR_LEFT, SENSOR_SAMPLE_SIZE);
+SharpDistSensor sensorIrRight(PIN_SENSOR_IR_RIGHT, SENSOR_SAMPLE_SIZE);
 unsigned long startedTimers[8];  // TODO: set to correct size
 
-
-SharpDistSensor sensorA(PIN_SENSOR_IR_FRONT, SENSOR_SAMPLE_SIZE);
-ZumoMotors motor;
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
+ZumoMotors motor;
+
+// Make a state object and give it a default value
+ActionState actionState = Startup;
 
 
 void setup() {
@@ -218,15 +232,10 @@ void loop() {
         printSensorValues(sensorValues);
     }
 
-    // unsigned int distance = getSensorDistance(sensorA);
-    // Serial.println(distance);
-    // delay(50);
-
     switch (actionState) {
         case Startup:
             if (hasTimerExpired(StartupTimer)) {
                 changeState(Search);
-                drive(200, Straight);
             }
             break;
 
@@ -265,14 +274,5 @@ void loop() {
  * @return the distance in millimeters
  */
 unsigned int getSensorDistance(SharpDistSensor &sensor) {
-    drive(200, Left);
     return sensor.getDist();
 }
-
-
-
-
-
-
-
-
