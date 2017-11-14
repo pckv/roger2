@@ -17,7 +17,7 @@
 // Declare pins
 const int PIN_LED = 13;
 const int PIN_SENSOR_IR_LEFT = A1;
-const int PIN_SENSOR_IR_RIGHT = A4;
+const int PIN_SENSOR_IR_RIGHT = A2;
 
 
 // Declare global constants
@@ -26,10 +26,10 @@ const int SENSOR_SAMPLE_SIZE = 5; // The sensor returns the mean value of x amou
 const int NUM_SENSORS = 6;  // Number of sensors in the array
 const int MAX_BORDER_SENSOR_RANGE = 2000;  // Highest value for border sensors
 const int WHITE_THRESHOLD = 1920;  // For the light sensors
-const int TARGET_DISTANCE_THRESHOLD = 350;  // For the front sensors
+const int TARGET_DISTANCE_THRESHOLD = 300;  // For the front sensors
 
 const int MAX_SPEED = 400;
-const int CASUAL_SPEED = 100;
+const int CASUAL_SPEED = 400;
 
 const unsigned long STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 
@@ -60,7 +60,8 @@ enum ActionState {
 // Timer IDs for using multiple timers at once
 enum Timer {
     StartupTimer,
-    RetreatTimer
+    SearchTimer,
+    TurnTimer
 };
 
 // Make the sensor and motor objects
@@ -137,18 +138,33 @@ Direction invertDirection(Direction direction) {
 
 
 /*
- * Print read sensor values as:
+ * Print read border sensor values as:
  * Sensors: {#0, #1, #2, #3, #4, #5}
  *
  * @param values Array of values to print.
  */
-void printSensorValues(unsigned int values[NUM_SENSORS]) {
+void printBorderSensorValues(unsigned int values[NUM_SENSORS]) {
     Serial.print("Sensors: {");
     for (unsigned int i = 0; i < NUM_SENSORS; i++) {
         Serial.print(values[i]);
         Serial.print(", ");
     }
     Serial.println("}");
+}
+
+
+/*
+ * Print IR sensor values as:
+ * Left: #Left,  Right: #Right
+ *
+ * @param valueLeft Measured value of the leftmost IR sensor.
+ * @param valueRight Measured value of the rightmost IR sensor.
+ */
+void printIRSensorValues(unsigned int valueLeft, unsigned int valueRight) {
+    Serial.print("Left: ");
+    Serial.print(valueLeft);
+    Serial.print(",  Right: ");
+    Serial.println(valueRight);
 }
 
 
@@ -295,7 +311,19 @@ float getIRSensorOffset(unsigned int valueLeft, unsigned int valueRight) {
     // Check the difference between the sensors:
     // closer values means offset closer to 1, while values further apart give a lower offset, such as 0.5
     unsigned int difference = abs(valueLeft - valueRight);
-    return (constrain(difference, 0, 200) / 200) * -1;
+    difference = constrain(difference, 0, 200) / 2;
+
+    if (difference < 30) {
+        return 1;
+    }
+    else {
+        float offset = 100 - map(difference, 30, 100, 0, 70);
+        return offset / 100;
+    }
+
+    /*difference = constrain(difference, 30, 200);
+    float offset = map(difference, 30, 200, 20, 70);
+    return offset / 100;*/
 }
 
 
@@ -305,8 +333,9 @@ float getIRSensorOffset(unsigned int valueLeft, unsigned int valueRight) {
  * @param borderSensor The currently measured sensor Direction.
  */
 void initiateSearch(Direction borderSensor) {
-    drive(CASUAL_SPEED, lastActionBorderSensor, (float) (random(80, 90)) / 100);
+    drive(CASUAL_SPEED, invertDirection(lastActionBorderSensor), (float) (random(80, 100)) / 100);
     changeState(Search);
+    startTimer(TurnTimer, 700);
 }
 
 
@@ -323,21 +352,22 @@ void initiateRetreat(Direction borderSensor) {
 
 
 void loop() {
-    unsigned int sensorValues[NUM_SENSORS];
+    unsigned int sensorValues[NUM_SENSORS];  // TODO: Register only the two side sensors with pin 4 and 5.
     unsigned int sensorIRLeftValue, sensorIRRightValue;
 
     // Store sensor readings in sensorValues
     sensors.read(sensorValues);
 
     // Measure front facing IR sensor values
-    valueLeft = getSensorDistance(sensorLeft);
-    valueRight = getSensorDistance(sensorRight);
+    sensorIRLeftValue = getSensorDistance(sensorIRLeft);
+    sensorIRRightValue = getSensorDistance(sensorIRRight);
 
     // Always find which sensor is above the border, if any
     Direction borderSensor = getSensorAboveBorder(sensorValues[0], sensorValues[5]);
 
     if (logging) {
-        printSensorValues(sensorValues);
+        // printSensorValues(sensorValues);
+        printIRSensorValues(sensorIRLeftValue, sensorIRRightValue);
     }
 
     switch (actionState) {
@@ -352,8 +382,13 @@ void loop() {
             if (borderSensor != None) {
                 initiateRetreat(borderSensor);
             }
-            else if (getSensorDistance(sensorIRLeft) < TARGET_DISTANCE_THRESHOLD) {
+            else if (getIRSensorTarget(sensorIRLeftValue, sensorIRRightValue) != None) {
                 changeState(Destroy);
+            }
+            else if (hasTimerExpired(TurnTimer)) {
+                startTimer(TurnTimer, 700);
+                changeState(Turn);
+                drive(MAX_SPEED, millis() % 2 == 0 ? SwivelLeft : SwivelRight);
             }
             break;
 
@@ -379,12 +414,15 @@ void loop() {
             if ((getActionDuration() >= 300) && (borderSensor == None)) {
                 drive(MAX_SPEED, lastActionBorderSensor == Left ? SwivelRight : SwivelLeft);
                 changeState(Turn);
-                startTimer(RetreatTimer, 300);
+                startTimer(TurnTimer, 400);
             }
             break;
 
         case Turn:
-            if (hasTimerExpired(RetreatTimer)) {                
+            if (getIRSensorTarget(sensorIRLeftValue, sensorIRRightValue) != None) {
+                changeState(Destroy);
+            }
+            else if (hasTimerExpired(TurnTimer)) {                
                 initiateSearch(borderSensor);
             }
             break;
