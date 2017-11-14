@@ -192,7 +192,7 @@ void changeState(ActionState newState) {
  * @param direction The direction to drive.
  * @param turnSpeedOffset For one of the motors when turning. Lower number means a sharper turn.
  */
-void drive(int speed, Direction direction = None, float turnSpeedOffset = 1) {
+void drive(int speed, Direction direction = None, float turnSpeedOffset = 0.75) {
     speed = constrain(speed, MIN_SPEED, MAX_SPEED);
 
     switch (direction) {
