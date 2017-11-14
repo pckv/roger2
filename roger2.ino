@@ -31,9 +31,9 @@ const int SENSOR_SAMPLE_SIZE = 5;
 const int NUM_SENSORS = 6;
 const int WHITE_THRESHOLD = 1920;
 
-const unsigned long STARTUP_SLEEP_TIME = 1000;  // As per the rules TODO: change to 5000
+const unsigned long STARTUP_SLEEP_TIME = 3000;  // As per the rules TODO: change to 5000
 
-bool logging = true;  // Debug logs on Serial port 9600
+bool logging = false;  // Debug logs on Serial port 9600
 
 enum Direction {Straight, Left, Right, SwivelLeft, SwivelRight};
 
@@ -98,7 +98,7 @@ void startTimer(Timer timer, unsigned long duration) {
  * @param Timer Which Timer to check.
  */
 bool hasTimerExpired(Timer timer) {
-    return startedTimers[timer] < millis();
+    return startedTimers[timer] <= millis();
 }
 
 
@@ -161,6 +161,7 @@ void changeState(ActionState newState) {
     }
 
     actionState = newState;
+    actionStarted = millis();
 }
 
 
@@ -217,28 +218,26 @@ void loop() {
         printSensorValues(sensorValues);
     }
 
-    unsigned int distance = getSensorDistance(sensorA);
-    Serial.println(distance);
-    delay(50);
+    // unsigned int distance = getSensorDistance(sensorA);
+    // Serial.println(distance);
+    // delay(50);
 
     switch (actionState) {
         case Startup:
             if (hasTimerExpired(StartupTimer)) {
                 changeState(Search);
-                drive(400, Straight);
+                drive(200, Straight);
             }
             break;
 
         case Search:
             if (isSensorAboveBorder(sensorValues, 0)) {
                 drive(200, SwivelRight);
-                startTimer(RetreatTimer, 200);
                 changeState(Retreat);
             }
 
             if (isSensorAboveBorder(sensorValues, 5)) {
                 drive(200, SwivelLeft);
-                startTimer(RetreatTimer, 200);
                 changeState(Retreat);
             }
             break;
@@ -247,8 +246,8 @@ void loop() {
             break;
 
         case Retreat:
-            if (hasTimerExpired(RetreatTimer)) {
-                drive(400, millis() % 2 == 0 ? Right : Left, random(0.5, 1));
+            if (getActionDuration() >= 200) {
+                drive(200, millis() % 2 == 0 ? Right : Left, (float) (random(75, 100)) / 100);
                 changeState(Search);
             }
             break;
