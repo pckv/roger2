@@ -33,7 +33,8 @@ const int CASUAL_SPEED = 400;
 const int MAX_IR_SENSOR_DIFFERENCE = 200;  // The highest measured distance for targeting
 const int IR_SENSOR_STRAIGHT_RATIO = 30;  // Ratio (out of 100) for when the targeting is deemed straight ahead
 
-const int TARGET_DRIVE_INTERVAL = 30;  // Change driving every 30ms when attacking (for fine tuning)
+const int TARGET_DRIVE_INTERVAL = 20;  // Change driving every 30ms when attacking (for fine tuning)
+const int TURN_TIMER_INTERVAL = 1300;
 const int STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 
 // Declare global variables
@@ -347,7 +348,7 @@ float getIRSensorOffset(unsigned int valueLeft, unsigned int valueRight) {
 void initiateSearch(Direction borderSensor) {
     drive(CASUAL_SPEED, invertDirection(lastActionBorderSensor), (float) (random(80, 100)) / 100);
     changeState(Search);
-    startTimer(TurnTimer, 700);
+    startTimer(TurnTimer, TURN_TIMER_INTERVAL);
 }
 
 
@@ -398,7 +399,7 @@ void loop() {
                 changeState(Destroy);
             }
             else if (hasTimerExpired(TurnTimer)) {
-                startTimer(TurnTimer, 700);
+                startTimer(TurnTimer, TURN_TIMER_INTERVAL);
                 changeState(Turn);
                 drive(MAX_SPEED, millis() % 2 == 0 ? SwivelLeft : SwivelRight);
             }
