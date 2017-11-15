@@ -19,7 +19,6 @@ const int PIN_LED = 13;
 const int PIN_SENSOR_IR_LEFT = A1;
 const int PIN_SENSOR_IR_RIGHT = A2;
 
-
 // Declare global constants
 const int SENSOR_SAMPLE_SIZE = 5; // The sensor returns the mean value of x amount of samples
 
@@ -30,6 +29,9 @@ const int TARGET_DISTANCE_THRESHOLD = 300;  // For the front sensors
 
 const int MAX_SPEED = 400;
 const int CASUAL_SPEED = 400;
+
+const int MAX_IR_SENSOR_DIFFERENCE = 200;  // The highest measured distance for targeting
+const int IR_SENSOR_STRAIGHT_RATIO = 30;  // Ratio (out of 100) for when the targeting is deemed straight ahead
 
 const unsigned long STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 
@@ -301,6 +303,8 @@ Direction getIRSensorTarget(unsigned int valueLeft, unsigned int valueRight) {
 /*
  * Get the offset needed for turning towards a target.
  *
+ * Closer values means offset closer to 1, while values further apart give a lower offset, such as 0.5
+ *
  * This function should only be used when a target is deemed in front of the bot.
  *
  * @param valueLeft Measured value of the leftmost IR sensor.
@@ -308,22 +312,27 @@ Direction getIRSensorTarget(unsigned int valueLeft, unsigned int valueRight) {
  * @returns The turning offset multiplier.
  */
 float getIRSensorOffset(unsigned int valueLeft, unsigned int valueRight) {
-    // Check the difference between the sensors:
-    // closer values means offset closer to 1, while values further apart give a lower offset, such as 0.5
+    // Check the absolute difference between the sensors:
     unsigned int difference = abs(valueLeft - valueRight);
-    difference = constrain(difference, 0, 200) / 2;
 
-    if (difference < 30) {
+    // Constrain the difference within a maximum
+    difference = constrain(difference, 0, MAX_IR_SENSOR_DIFFERENCE);
+
+    // Map the difference between 0 and 100 for more usable values later
+    difference = map(difference, 0, MAX_IR_SENSOR_DIFFERENCE, 0, 100);
+
+    // If the difference is small enough, pretend the target is straight ahead
+    if (difference < IR_SENSOR_STRAIGHT_DIFFERENCE) {
         return 1;
     }
     else {
-        float offset = 100 - map(difference, 30, 100, 0, 70);
+        // Calculate the offset based on a map from 0 to 70
+        // It's important to invert the offset (100 - map...), since a lower difference should be closer to 1, not 0
+        float offset = 100 - map(difference, IR_SENSOR_STRAIGHT_RATIO, 100, 0, 70);
+
+        // Divide the offset by 100 and return the float in the domain [0, 1]
         return offset / 100;
     }
-
-    /*difference = constrain(difference, 30, 200);
-    float offset = map(difference, 30, 200, 20, 70);
-    return offset / 100;*/
 }
 
 
