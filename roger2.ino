@@ -20,20 +20,23 @@ const int PIN_SENSOR_IR_LEFT = A1;
 const int PIN_SENSOR_IR_RIGHT = A2;
 
 // Declare global constants
-const int SENSOR_SAMPLE_SIZE = 4; // The sensor returns the mean value of x amount of samples
+const int SENSOR_SAMPLE_SIZE = 6; // The sensor returns the mean value of x amount of samples
 
 const int NUM_SENSORS = 6;  // Number of sensors in the array
 const int MAX_BORDER_SENSOR_RANGE = 2000;  // Highest value for border sensors
 const int WHITE_THRESHOLD = 1920;  // For the light sensors
-const int TARGET_DISTANCE_THRESHOLD = 300;  // For the front sensors
+const int TARGET_DISTANCE_THRESHOLD = 350;  // For the front sensors
 
 const int MAX_SPEED = 400;
-const int CASUAL_SPEED = 400;
+const int CASUAL_SPEED = 270;
+const int TURN_SPEED = 300;
 
 const int MAX_IR_SENSOR_DIFFERENCE = 200;  // The highest measured distance for targeting
 const int IR_SENSOR_STRAIGHT_RATIO = 30;  // Ratio (out of 100) for when the targeting is deemed straight ahead
 
 const int TARGET_DRIVE_INTERVAL = 20;  // Change driving every 30ms when attacking (for fine tuning)
+const int REVERSE_DURATION = 500;
+const int TURN_TIMER_DURATION = 700;
 const int TURN_TIMER_INTERVAL = 1300;
 const int STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 
@@ -399,9 +402,9 @@ void loop() {
                 changeState(Destroy);
             }
             else if (hasTimerExpired(TurnTimer)) {
-                startTimer(TurnTimer, TURN_TIMER_INTERVAL);
+                startTimer(TurnTimer, TURN_TIMER_DURATION);
                 changeState(Turn);
-                drive(MAX_SPEED, millis() % 2 == 0 ? SwivelLeft : SwivelRight);
+                drive(TURN_SPEED, millis() % 2 == 0 ? SwivelLeft : SwivelRight);
             }
             break;
 
@@ -415,18 +418,18 @@ void loop() {
                 if (targetDirection == None) {
                     initiateSearch(borderSensor);
                 }
-                else if (hasTimerExpired(TargetDriveIntervalTimer)) {
+                else { // if (hasTimerExpired(TargetDriveIntervalTimer)) {
                     float turnOffset = getIRSensorOffset(sensorIRLeftValue, sensorIRRightValue);
                     drive(MAX_SPEED, targetDirection, turnOffset);
-                    startTimer(TargetDriveIntervalTimer, TARGET_DRIVE_INTERVAL);
+                    // startTimer(TargetDriveIntervalTimer, TARGET_DRIVE_INTERVAL);
                 }
             }
             break;
 
         case Retreat:
-            // After 300ms, and if the sensors are not above the border, go back to search mode
-            if ((getActionDuration() >= 300) && (borderSensor == None)) {
-                drive(MAX_SPEED, lastActionBorderSensor == Left ? SwivelRight : SwivelLeft);
+            // After REVERSE_DURATION ms, and if the sensors are not above the border, go back to search mode
+            if ((getActionDuration() >= REVERSE_DURATION) && (borderSensor == None)) {
+                drive(TURN_SPEED, lastActionBorderSensor == Left ? SwivelRight : SwivelLeft);
                 changeState(Turn);
                 startTimer(TurnTimer, 400);
             }
