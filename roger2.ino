@@ -20,7 +20,7 @@ const int PIN_SENSOR_IR_LEFT = A1;
 const int PIN_SENSOR_IR_RIGHT = A2;
 
 // Declare global constants
-const int SENSOR_SAMPLE_SIZE = 8; // The sensor returns the mean value of x amount of samples
+const int SENSOR_SAMPLE_SIZE = 4; // The sensor returns the mean value of x amount of samples
 
 const int NUM_SENSORS = 6;  // Number of sensors in the array
 const int MAX_BORDER_SENSOR_RANGE = 2000;  // Highest value for border sensors
@@ -231,6 +231,7 @@ void changeState(ActionState newState) {
  */
 void drive(int speed, Direction direction = None, float turnSpeedOffset = 1) {
     speed = constrain(speed, -MAX_SPEED, MAX_SPEED);
+    turnSpeedOffset = constrain(turnSpeedOffset, -1, 1);
 
     switch (direction) {
         case None:
@@ -324,7 +325,7 @@ float getIRSensorOffset(unsigned int valueLeft, unsigned int valueRight) {
     difference = map(difference, 0, MAX_IR_SENSOR_DIFFERENCE, 0, 100);
 
     // If the difference is small enough, pretend the target is straight ahead
-    if (difference < IR_SENSOR_STRAIGHT_DIFFERENCE) {
+    if (difference < IR_SENSOR_STRAIGHT_RATIO) {
         return 1;
     }
     else {
