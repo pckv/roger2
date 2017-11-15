@@ -7,11 +7,15 @@
 
 // https://github.com/pololu/zumo-shield
 #include <ZumoMotors.h>
+#include <ZumoBuzzer.h>
 #include <QTRSensors.h>
 #include <ZumoReflectanceSensorArray.h>
 
 // https://github.com/DrGFreeman/SharpDistSensor
 #include <SharpDistSensor.h>
+
+// Inklude the header file containing music note sheet
+#include "notes.h"
 
 
 // Declare pins
@@ -78,6 +82,9 @@ SharpDistSensor sensorIRRight(PIN_SENSOR_IR_RIGHT, SENSOR_SAMPLE_SIZE);
 
 ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
 ZumoMotors motor;
+ZumoBuzzer buzzer;
+
+unsigned int currentMelodyIndex = 0;
 
 // Set the default ActionState
 ActionState actionState = Startup;
@@ -367,6 +374,16 @@ void initiateRetreat(Direction borderSensor) {
 }
 
 
+void playNote() {
+    if (currentMelodyIndex < MELODY_LENGTH && !buzzer.isPlaying())
+    {
+        // play note at max volume
+        buzzer.playNote(note[currentMelodyIndex], noteDuration, 15);
+        currentMelodyIndex++;
+    }
+}
+
+
 void loop() {
     unsigned int sensorValues[NUM_SENSORS];  // TODO: Register only the two side sensors with pin 4 and 5.
     unsigned int sensorIRLeftValue, sensorIRRightValue;
@@ -380,6 +397,8 @@ void loop() {
 
     // Always find which sensor is above the border, if any
     Direction borderSensor = getSensorAboveBorder(sensorValues[0], sensorValues[5]);
+
+    // playNote();
 
     if (logging) {
         // printSensorValues(sensorValues);
