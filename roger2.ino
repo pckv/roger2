@@ -29,18 +29,18 @@ const int SENSOR_SAMPLE_SIZE = 6; // The sensor returns the mean value of x amou
 const int NUM_SENSORS = 6;  // Number of sensors in the array
 const int MAX_BORDER_SENSOR_RANGE = 2000;  // Highest value for border sensors
 const int WHITE_THRESHOLD = 1920;  // For the light sensors
-const int TARGET_DISTANCE_THRESHOLD = 350;  // For the front sensors
+const int TARGET_DISTANCE_THRESHOLD = 420;  // For the front sensors
 
 const int MAX_SPEED = 400;
-const int CASUAL_SPEED = 270;
-const int TURN_SPEED = 300;
+const int CASUAL_SPEED = 240;
+const int TURN_SPEED = 250;
 
 const int MAX_IR_SENSOR_DIFFERENCE = 200;  // The highest measured distance for targeting
 const int IR_SENSOR_STRAIGHT_RATIO = 30;  // Ratio (out of 100) for when the targeting is deemed straight ahead
 
 const int TARGET_DRIVE_INTERVAL = 20;  // Change driving every 30ms when attacking (for fine tuning)
 const int REVERSE_DURATION = 500;
-const int TURN_TIMER_DURATION = 700;
+const int TURN_TIMER_DURATION = 1300;
 const int TURN_TIMER_INTERVAL = 1300;
 const int STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 
@@ -48,7 +48,8 @@ const int STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
 unsigned long actionStarted;  // Store the time action states changed.
 unsigned long startedTimers[8];  // TODO: set to size of Timer enum
 
-bool logging = false;  // Debug logs on Serial port 9600
+bool logging = false;  // Debug logs on Serial port 9600  TODO: Disable logging before end of Roger 2 dev period
+bool playingMusic = false;
 
 // Make enums
 enum Direction {
@@ -65,6 +66,7 @@ enum ActionState {
     Destroy,    // After targeting the opponent, this state is for charging and attacking
     Retreat,    // The Retreat state is active when the robot has reached the edge of the arena
     Turn,       // After Retreat, for turning around
+    // TODO: add "crisis" state for when we're literally stuck in Destroy
     Victory     // Warp to dance floor
 };
 
@@ -95,8 +97,10 @@ void setup() {
     Serial.begin(9600);
 
     pinMode(PIN_LED, OUTPUT);
-    sensorIRLeft.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
-    sensorIRRight.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
+
+    // These are set default to GP2Y0A60SZLF_5V in SharpDistSensor
+    // sensorIRLeft.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
+    // sensorIRRight.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
 
     // Start a 5 second timer before changing to a bigboi state
     startTimer(StartupTimer, STARTUP_SLEEP_TIME);
@@ -378,7 +382,7 @@ void playNote() {
     if (currentMelodyIndex < MELODY_LENGTH && !buzzer.isPlaying())
     {
         // play note at max volume
-        buzzer.playNote(note[currentMelodyIndex], noteDuration, 15);
+        buzzer.playNote(melodyNotes[currentMelodyIndex], noteDuration, 10);
         currentMelodyIndex++;
     }
 }
@@ -398,7 +402,9 @@ void loop() {
     // Always find which sensor is above the border, if any
     Direction borderSensor = getSensorAboveBorder(sensorValues[0], sensorValues[5]);
 
-    // playNote();
+    if (playingMusic) {
+        playNote();
+    }
 
     if (logging) {
         // printSensorValues(sensorValues);
