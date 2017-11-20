@@ -9,7 +9,6 @@
 #include <ZumoMotors.h>
 #include <ZumoBuzzer.h>
 #include <QTRSensors.h>
-#include <ZumoReflectanceSensorArray.h>
 
 // https://github.com/DrGFreeman/SharpDistSensor
 #include <SharpDistSensor.h>
@@ -20,15 +19,19 @@
 
 // Declare pins
 const int PIN_LED = 13;
+const int PIN_SENSOR_BORDER_LEFT = 4;
+const int PIN_SENSOR_BORDER_RIGHT = 5;
 const int PIN_SENSOR_IR_LEFT = A1;
 const int PIN_SENSOR_IR_RIGHT = A2;
 
 // Declare global constants
 const int SENSOR_SAMPLE_SIZE = 6; // The sensor returns the mean value of x amount of samples
 
-const int NUM_SENSORS = 6;  // Number of sensors in the array
-const int MAX_BORDER_SENSOR_RANGE = 2000;  // Highest value for border sensors
-const int WHITE_THRESHOLD = 1920;  // For the light sensors
+const int NUM_BORDER_SENSORS = 2;
+const int SENSOR_BORDER_TIMEOUT = 2500;  // Border sensor timeout in microseconds
+
+const int MAX_BORDER_SENSOR_RANGE = 2500;  // Highest value for border sensors
+const int WHITE_THRESHOLD = 2420;  // For the light sensors
 const int TARGET_DISTANCE_THRESHOLD = 420;  // For the front sensors
 
 const int MAX_SPEED = 400;
@@ -82,7 +85,9 @@ enum Timer {
 SharpDistSensor sensorIRLeft(PIN_SENSOR_IR_LEFT, SENSOR_SAMPLE_SIZE);
 SharpDistSensor sensorIRRight(PIN_SENSOR_IR_RIGHT, SENSOR_SAMPLE_SIZE);
 
-ZumoReflectanceSensorArray sensors(QTR_NO_EMITTER_PIN);
+QTRSensorsRC borderSensors((unsigned char[]) {PIN_SENSOR_BORDER_LEFT, PIN_SENSOR_BORDER_RIGHT},
+                     NUM_BORDER_SENSORS, SENSOR_BORDER_TIMEOUT, QTR_NO_EMITTER_PIN);
+
 ZumoMotors motor;
 ZumoBuzzer buzzer;
 
@@ -158,32 +163,32 @@ Direction invertDirection(Direction direction) {
 
 /*
  * Print read border sensor values as:
- * Sensors: {#0, #1, #2, #3, #4, #5}
+ * BORDER {Left: #Left,  Right: #Right}
  *
  * @param values Array of values to print.
  */
-void printBorderSensorValues(unsigned int values[NUM_SENSORS]) {
-    Serial.print("Sensors: {");
-    for (unsigned int i = 0; i < NUM_SENSORS; i++) {
-        Serial.print(values[i]);
-        Serial.print(", ");
-    }
+void printBorderSensorValues(unsigned int valueLeft, unsigned int valueRight) {
+    Serial.print("BORDER {Left: ");
+    Serial.print(valueLeft);
+    Serial.print(",  Right: ");
+    Serial.print(valueRight);
     Serial.println("}");
 }
 
 
 /*
  * Print IR sensor values as:
- * Left: #Left,  Right: #Right
+ * IR     {Left: #Left,  Right: #Right}
  *
  * @param valueLeft Measured value of the leftmost IR sensor.
  * @param valueRight Measured value of the rightmost IR sensor.
  */
 void printIRSensorValues(unsigned int valueLeft, unsigned int valueRight) {
-    Serial.print("Left: ");
+    Serial.print("IR     {Left: ");
     Serial.print(valueLeft);
     Serial.print(",  Right: ");
-    Serial.println(valueRight);
+    Serial.print(valueRight);
+    Serial.println("}");
 }
 
 
@@ -389,26 +394,26 @@ void playNote() {
 
 
 void loop() {
-    unsigned int sensorValues[NUM_SENSORS];  // TODO: Register only the two side sensors with pin 4 and 5.
+    unsigned int sensorBorderValues[NUM_BORDER_SENSORS];
     unsigned int sensorIRLeftValue, sensorIRRightValue;
 
     // Store sensor readings in sensorValues
-    sensors.read(sensorValues);
+    borderSensors.read(sensorBorderValues);
 
     // Measure front facing IR sensor values
     sensorIRLeftValue = getSensorDistance(sensorIRLeft);
     sensorIRRightValue = getSensorDistance(sensorIRRight);
 
     // Always find which sensor is above the border, if any
-    Direction borderSensor = getSensorAboveBorder(sensorValues[0], sensorValues[5]);
+    Direction borderSensor = getSensorAboveBorder(sensorBorderValues[0], sensorBorderValues[1]);
 
     if (playingMusic) {
         playNote();
     }
 
     if (logging) {
-        // printSensorValues(sensorValues);
-        printIRSensorValues(sensorIRLeftValue, sensorIRRightValue);
+        printBorderSensorValues(sensorBorderValues[0], sensorBorderValues[1]);
+        // printIRSensorValues(sensorIRLeftValue, sensorIRRightValue);
     }
 
     switch (actionState) {
@@ -484,3 +489,4 @@ void loop() {
 unsigned int getSensorDistance(SharpDistSensor &sensor) {
     return sensor.getDist();
 }
+
