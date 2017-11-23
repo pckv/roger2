@@ -1,7 +1,13 @@
-/*
+ /*
  * Roger 2
  *
- * TODO: Bruk accelerometer til å vite om vi har blitt eid av motstanderen
+ * This Zumo robot fights other Zumo robots in a circular arena.
+ *
+ * @author Kjærbech, Áron
+ * @author Kvalvik, Per Christian
+ * @author Kvernstad, Espen
+ * @author Kvenseth, Geir
+ * @author Trulsen, Ørjan
  *
 */
 
@@ -9,12 +15,10 @@
 #include <ZumoMotors.h>
 #include <ZumoBuzzer.h>
 #include <QTRSensors.h>
+#include <Pushbutton.h>
 
 // https://github.com/DrGFreeman/SharpDistSensor
 #include <SharpDistSensor.h>
-
-// Inklude the header file containing music note sheet
-#include "notes.h"
 
 
 // Declare pins
@@ -25,17 +29,19 @@ const int PIN_SENSOR_IR_LEFT = A1;
 const int PIN_SENSOR_IR_RIGHT = A2;
 
 // Declare global constants
+const bool LOGGING = false;  // Debug logs on Serial port 9600
+
 const int SENSOR_SAMPLE_SIZE = 6; // The sensor returns the mean value of x amount of samples
 
 const int NUM_BORDER_SENSORS = 2;
-const int SENSOR_BORDER_TIMEOUT = 2500;  // Border sensor timeout in microseconds
+const int SENSOR_BORDER_TIMEOUT = 1000;  // Border sensor timeout in microseconds
 
 const int MAX_BORDER_SENSOR_RANGE = 2500;  // Highest value for border sensors
 const int WHITE_THRESHOLD = 2420;  // For the light sensors
 const int TARGET_DISTANCE_THRESHOLD = 420;  // For the front sensors
 
 const int MAX_SPEED = 400;
-const int CASUAL_SPEED = 240;
+const int CASUAL_SPEED = 300;
 const int TURN_SPEED = 250;
 
 const int MAX_IR_SENSOR_DIFFERENCE = 200;  // The highest measured distance for targeting
@@ -45,14 +51,11 @@ const int TARGET_DRIVE_INTERVAL = 20;  // Change driving every 30ms when attacki
 const int REVERSE_DURATION = 500;
 const int TURN_TIMER_DURATION = 1300;
 const int TURN_TIMER_INTERVAL = 1300;
-const int STARTUP_SLEEP_TIME = 2000;  // As per the rules TODO: change to 5000
+const int STARTUP_SLEEP_TIME = 5000;  // As per the rules
 
 // Declare global variables
 unsigned long actionStarted;  // Store the time action states changed.
-unsigned long startedTimers[8];  // TODO: set to size of Timer enum
-
-bool logging = false;  // Debug logs on Serial port 9600  TODO: Disable logging before end of Roger 2 dev period
-bool playingMusic = false;
+unsigned long startedTimers[5];
 
 // Make enums
 enum Direction {
@@ -69,13 +72,13 @@ enum ActionState {
     Destroy,    // After targeting the opponent, this state is for charging and attacking
     Retreat,    // The Retreat state is active when the robot has reached the edge of the arena
     Turn,       // After Retreat, for turning around
-    // TODO: add "crisis" state for when we're literally stuck in Destroy
     Victory     // Warp to dance floor
 };
 
 // Timer IDs for using multiple timers at once
 enum Timer {
     StartupTimer,
+    StartupBeepTimer,
     SearchTimer,
     TargetDriveIntervalTimer,
     TurnTimer
@@ -90,8 +93,7 @@ QTRSensorsRC borderSensors((unsigned char[]) {PIN_SENSOR_BORDER_LEFT, PIN_SENSOR
 
 ZumoMotors motor;
 ZumoBuzzer buzzer;
-
-unsigned int currentMelodyIndex = 0;
+Pushbutton button(ZUMO_BUTTON);
 
 // Set the default ActionState
 ActionState actionState = Startup;
@@ -106,6 +108,10 @@ void setup() {
     // These are set default to GP2Y0A60SZLF_5V in SharpDistSensor
     // sensorIRLeft.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
     // sensorIRRight.setModel(SharpDistSensor::GP2Y0A60SZLF_5V);
+
+    digitalWrite(PIN_LED, HIGH);
+    button.waitForButton();
+    digitalWrite(PIN_LED, LOW);
 
     // Start a 5 second timer before changing to a bigboi state
     startTimer(StartupTimer, STARTUP_SLEEP_TIME);
@@ -229,7 +235,7 @@ void printActionState(ActionState state) {
  * @param newState The ActionState to change to.
  */
 void changeState(ActionState newState) {
-    if (logging) {
+    if (LOGGING) {
         Serial.print("Changing Action state from ");
         printActionState(actionState);
         Serial.print(" to ");
@@ -383,16 +389,6 @@ void initiateRetreat(Direction borderSensor) {
 }
 
 
-void playNote() {
-    if (currentMelodyIndex < MELODY_LENGTH && !buzzer.isPlaying())
-    {
-        // play note at max volume
-        buzzer.playNote(melodyNotes[currentMelodyIndex], noteDuration, 10);
-        currentMelodyIndex++;
-    }
-}
-
-
 void loop() {
     unsigned int sensorBorderValues[NUM_BORDER_SENSORS];
     unsigned int sensorIRLeftValue, sensorIRRightValue;
@@ -407,11 +403,7 @@ void loop() {
     // Always find which sensor is above the border, if any
     Direction borderSensor = getSensorAboveBorder(sensorBorderValues[0], sensorBorderValues[1]);
 
-    if (playingMusic) {
-        playNote();
-    }
-
-    if (logging) {
+    if (LOGGING) {
         printBorderSensorValues(sensorBorderValues[0], sensorBorderValues[1]);
         // printIRSensorValues(sensorIRLeftValue, sensorIRRightValue);
     }
@@ -419,7 +411,12 @@ void loop() {
     switch (actionState) {
         case Startup:
             if (hasTimerExpired(StartupTimer)) {
+                buzzer.playNote(NOTE_E(6), 500, 15);
                 initiateSearch(borderSensor);
+            }
+            else if (hasTimerExpired(StartupBeepTimer)) {
+                buzzer.playNote(NOTE_E(5), 100, 15);
+                startTimer(StartupBeepTimer, 1000);
             }
             break;
 
