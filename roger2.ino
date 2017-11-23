@@ -131,7 +131,7 @@ unsigned long getActionDuration() {
 /*
  * Starts a timer with the given Timer id.
  *
- * @param Timer Which timer to start.
+ * @param timer Which timer to start.
  * @param duration When the timer should expire.
  */
 void startTimer(Timer timer, unsigned long duration) {
